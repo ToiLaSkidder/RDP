@@ -1,15 +1,16 @@
-name: 🚀 SSHX FIXED URL FOR TOILASKIDDER
+name: 🚀 SSHX ULTRA CLEAN REDIRECT
 
 on:
   workflow_dispatch:
     inputs:
       duration:
+        description: '🕐 Thời gian chạy (1h-12h)'
         default: '12h'
         type: choice
         options: ['1h', '3h', '6h', '12h']
 
 jobs:
-  Deploy:
+  Fast-Deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -18,57 +19,86 @@ jobs:
       - name: 📥 CHECKOUT
         uses: actions/checkout@v4
 
-      - name: 📥 INSTALL SSHX
+      - name: 📥 SETUP SSHX BINARY
         run: |
           curl -sSf https://sshx.io/get | sh
-          # Tìm file bin chính xác
-          SSHX_BIN=$(which sshx || find $HOME -name sshx -type f | head -n 1)
-          cp "$SSHX_BIN" ./sshx_bin
+          # Tìm file thực thi bất kể script cài đặt đặt nó ở đâu
+          SSHX_PATH=$(which sshx || find $HOME -name sshx -type f | head -n 1)
+          cp "$SSHX_PATH" ./sshx_bin
+          chmod +x ./sshx_bin
 
-      - name: 🌐 RUN ROOT & CAPTURE FULL URL
+      - name: 🌐 RUN ROOT & PURGE ANSI LOGS
         run: |
-          # Chạy sudo và bắt log
+          # Chạy sudo để có quyền quản trị cao nhất
           sudo ./sshx_bin > sshx_log.txt 2>&1 &
           
-          echo "⏳ Đang đợi link (15s)..."
+          echo "⏳ Đang khởi tạo Terminal (15s)..."
           sleep 15
           
-          # Sử dụng regex mạnh hơn để lấy toàn bộ URL kể cả dấu #
-          # grep -oP yêu cầu Perl-style regex để bắt chính xác các ký tự đặc biệt
-          RAW_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
+          # Lọc URL và tẩy sạch mã màu ANSI (\x1b...) gây lỗi "Invalid end-to-end"
+          RAW_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1 | sed 's/\x1b\[[0-9;]*m//g')
           
-          if [ -z "$RAW_URL" ]; then
-            echo "❌ Không tìm thấy URL!"
+          # Cắt bỏ các ký tự rác không phải URL ở cuối dòng
+          CLEAN_URL=$(echo "$RAW_URL" | sed 's/[^a-zA-Z0-9#?=&/_.:-]*$//')
+
+          if [ -z "$CLEAN_URL" ]; then
+            echo "❌ Lỗi: Không bắt được URL SSHX!"
             cat sshx_log.txt
             exit 1
           fi
 
-          echo "✅ Đã bắt được URL: $RAW_URL"
-          # Lưu vào file thay vì biến env để tránh lỗi escape ký tự lạ
-          echo "$RAW_URL" > url_source.txt
+          echo "✅ URL CHUẨN: $CLEAN_URL"
+          echo "$CLEAN_URL" > url_source.txt
 
-      - name: ⚡ PUSH TO GH-PAGES
+      - name: ⚡ DEPLOY TO GH-PAGES WITH CACHE BYPASS
         run: |
-          # Đọc URL từ file
           SSHX_URL=$(cat url_source.txt)
           
-          # Tạo index.html sử dụng template literal để tránh lỗi dấu nháy
-          echo "<html><head><script>location.replace(\"$SSHX_URL\")</script></head></html>" > index.html
+          # Tạo trang index.html với logic tự động redirect qua ?new để xóa cache
+          cat <<EOF > index.html
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="UTF-8">
+              <title>ToiLaSkidder Terminal</title>
+              <script>
+                  const params = new URLSearchParams(window.location.search);
+                  if (!params.has('new')) {
+                      // Bước 1: Thêm ?new để GitHub Pages không load bản cũ
+                      window.location.replace(window.location.origin + window.location.pathname + '?new');
+                  } else {
+                      // Bước 2: Redirect tới link SSHX thật sự
+                      window.location.replace("$SSHX_URL");
+                  }
+              </script>
+          </head>
+          <body style="background:#000;color:#0f0;font-family:monospace;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
+              <div style="border:1px solid #0f0;padding:20px;box-shadow:0 0 10px #0f0;">
+                  > LOADING ROOT ACCESS...<br>
+                  > BYPASSING CACHE...<br>
+                  > REDIRECTING TO TERMINAL...
+              </div>
+          </body>
+          </html>
+          EOF
           
+          # Cấu hình domain và bypass Jekyll
           echo "sshx.nghuyzzz.qzz.io" > CNAME
           touch .nojekyll
           
+          # Git Push Fast
           git config --global user.name "ToiLaSkidder"
           git config --global user.email "ToiLaSkidder@users.noreply.github.com"
           
           git checkout --orphan gh-pages
           git rm -rf .
           git add index.html CNAME .nojekyll
-          git commit -m "🚀 Terminal Fixed URL: $(date)"
+          git commit -m "🚀 Terminal Updated: $(date)"
           git push origin gh-pages --force
 
       - name: ⏳ KEEP ALIVE
         run: |
+          echo "🕒 Hệ thống đang chạy trong ${{ github.event.inputs.duration }}..."
           case "${{ github.event.inputs.duration }}" in
             "1h") sleep 3600 ;; "3h") sleep 10800 ;; "6h") sleep 21600 ;; "12h") sleep 43200 ;;
           esac
