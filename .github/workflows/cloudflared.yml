@@ -1,0 +1,93 @@
+name: 🚀 SEVER AI STV PREMIUM - 12H CLOUDFLARE
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: '🕐 Thời gian sử dụng'
+        required: false
+        default: '12h'
+        type: choice
+        options:
+        - '1h'
+        - '3h' 
+        - '6h'
+        - '12h'
+
+jobs:
+  Premium-RDP-Setup:
+    runs-on: windows-latest
+    timeout-minutes: 720 
+    
+    steps:
+      - name: 🎯 KHỞI ĐỘNG HỆ THỐNG
+        run: |
+          Write-Host "`n🤖 AI STV PREMIUM RDP SERVER" -ForegroundColor Yellow
+          Write-Host "⚡ Powered by AI STV" -ForegroundColor Green
+          
+      - name: 🔧 CẤU HÌNH HỆ THỐNG RDP
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP-Cloudflare" dir=in action=allow protocol=TCP localport=3389 profile=any
+          Start-Service -Name TermService -ErrorAction SilentlyContinue
+
+      - name: 👤 TẠO TÀI KHOẢN NGHUYZZZ
+        run: |
+          $matKhau = "Huyngu67@" 
+          $securePass = ConvertTo-SecureString $matKhau -AsPlainText -Force
+          Remove-LocalUser -Name "nghuyzzz" -ErrorAction SilentlyContinue
+          New-LocalUser -Name "nghuyzzz" -Password $securePass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member "nghuyzzz"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "nghuyzzz"
+          Write-Host "│ ✅ User: nghuyzzz | Pass: Huyngu67@" -ForegroundColor Green
+
+      - name: 🌐 THIẾT LẬP CLOUDFLARE TUNNEL
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+        run: |
+          Write-Host "`n🌐 ĐANG CÀI ĐẶT CLOUDFLARED..." -ForegroundColor Yellow
+          # Tải bản cloudflared mới nhất cho Windows
+          Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.msi" -OutFile "cloudflared.msi"
+          Start-Process msiexec.exe -ArgumentList "/i", "cloudflared.msi", "/quiet" -Wait
+          
+          Write-Host "🔗 Đang kết nối Tunnel..." -ForegroundColor Blue
+          # Chạy cloudflared tunnel với token của bạn
+          # Cấu hình trên Dashboard Cloudflare: Service = tcp://localhost:3389
+          Start-Process "C:\Program Files (x86)\cloudflared\cloudflared.exe" -ArgumentList "tunnel", "--no-autoupdate", "run", "--token", "$env:CF_TOKEN" -WindowStyle Hidden
+          
+          Write-Host "│ ✅ Cloudflare Tunnel đang chạy ngầm." -ForegroundColor Green
+
+      - name: 🎉 THÔNG TIN KẾT NỐI
+        run: |
+          $durationInput = "${{ github.event.inputs.duration }}"
+          switch ($durationInput) {
+              "1h" { $totalMinutes = 60 } "3h" { $totalMinutes = 180 } "6h" { $totalMinutes = 360 } "12h" { $totalMinutes = 720 }
+          }
+          $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
+          $endTime = ([System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)).AddMinutes($totalMinutes)
+          
+          Write-Host "`n┌───────────────────────────────────────────┐" -ForegroundColor Cyan
+          Write-Host "│              🎉 HỆ THỐNG SẴN SÀNG!               │" -ForegroundColor Cyan
+          Write-Host "├───────────────────────────────────────────┤" -ForegroundColor Cyan
+          Write-Host "│ 👤  Tài khoản: nghuyzzz" -ForegroundColor White
+          Write-Host "│ 🔐  Mật khẩu: Huyngu67@" -ForegroundColor White
+          Write-Host "│ ⏰  Kết thúc: $($endTime.ToString('HH:mm:ss dd/MM'))" -ForegroundColor Yellow
+          Write-Host "├───────────────────────────────────────────┤" -ForegroundColor Cyan
+          Write-Host "│ 💡 Kết nối qua Domain bạn đã trỏ trong CF     │" -ForegroundColor Gray
+          Write-Host "└───────────────────────────────────────────┘" -ForegroundColor Cyan
+          echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
+
+      - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
+        run: |
+          $totalMinutes = $env:TOTAL_MINUTES
+          $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
+          $endTime = ([System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)).AddMinutes($totalMinutes)
+          while ($true) {
+              $now = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
+              $left = $endTime - $now
+              if ($left.TotalSeconds -le 0) { break }
+              Write-Host ("`r⏳ Đang duy trì... Còn lại: {0:D2}h {1:D2}m {2:D2}s" -f $left.Hours, $left.Minutes, $left.Seconds) -NoNewline -ForegroundColor Cyan
+              Start-Sleep -Seconds 1
+          }
