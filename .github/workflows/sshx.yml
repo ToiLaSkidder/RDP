@@ -1,70 +1,60 @@
-name: 🚀 SSHX TERMINAL - FULL REDIRECT
+name: 🚀 SSHX REDIRECT (HOSTED ON RDP REPO)
 
 on:
   workflow_dispatch:
     inputs:
       duration:
-        description: '🕐 Chọn thời gian duy trì'
-        required: false
+        description: '🕐 Thời gian chạy'
         default: '12h'
         type: choice
-        options:
-        - '1h'
-        - '3h' 
-        - '6h'
-        - '12h'
+        options: ['1h', '3h', '6h', '12h']
 
 jobs:
-  SSHX-to-Worker:
+  Deploy:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: write
+      
     steps:
-      - name: 📥 CÀI ĐẶT SSHX (STABLE VERSION)
+      - name: 📥 CHECKOUT
+        uses: actions/checkout@v4
+
+      - name: 📥 SETUP SSHX
         run: |
           curl -sSf https://sshx.io/get | sh
-          # Copy file ra thư mục hiện tại để dễ gọi lệnh
-          if [ -f "$HOME/.sshx/sshx" ]; then
-            cp "$HOME/.sshx/sshx" .
-          else
-            find $HOME -name sshx -type f -exec cp {} . \; -quit
-          fi
+          find $HOME/.sshx -name sshx -exec cp {} . \;
           chmod +x ./sshx
-- name: 🌐 KHỞI CHẠY SSHX VỚI QUYỀN ROOT
-        env:
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          KV_ID: ${{ secrets.KV_NAMESPACE_ID }}
+
+      - name: 🌐 RUN ROOT SSHX
         run: |
-          # 1. Khởi chạy sshx dưới quyền sudo để có quyền Root ngay khi truy cập
-          # Dùng 'sudo -E' để giữ các biến môi trường nếu cần
           sudo ./sshx > sshx_log.txt 2>&1 &
-          
-          echo "⏳ Đang khởi tạo Terminal Root..."
           sleep 12
-          
-          # 2. Trích xuất FULL URL (bao gồm phần xác thực sau dấu #)
+          # Lấy Full URL có dấu #
           SSHX_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
-          
-          if [ -z "$SSHX_URL" ]; then
-            echo "❌ LỖI: Không lấy được URL!"
-            cat sshx_log.txt
-            exit 1
-          fi
+          echo "URL=$SSHX_URL" >> $GITHUB_ENV
 
-          echo "✅ URL Root: $SSHX_URL"
-
-          # 3. Đẩy URL lên Cloudflare KV
-          curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/storage/kv/namespaces/$KV_ID/values/LATEST_URL" `
-            -H "Authorization: Bearer $CF_API_TOKEN" `
-            -H "Content-Type: text/plain" `
-            --data "$SSHX_URL"
-          
-          echo "🎉 Đã xong! Bây giờ khi vào domain, bạn sẽ thấy dấu '#' (Root) thay vì '$' (User)."
-
-      - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
+      - name: ⚡ PUSH TO GH-PAGES (BRANCH RIÊNG)
         run: |
-          DURATION="${{ github.event.inputs.duration }}"
-          case $DURATION in
+          # Tạo file redirect
+          echo "<html><head><script>location.replace('${{ env.URL }}')</script></head></html>" > index.html
+          
+          # File CNAME định danh cho Domain riêng của bạn
+          echo "ssh.nghuyzzz.qzz.io" > CNAME
+          
+          # Cấu hình Git
+          git config --global user.name "ToiLaSkidder"
+          git config --global user.email "ToiLaSkidder@users.noreply.github.com"
+          
+          # Đẩy lên nhánh gh-pages của repo RDP (không ảnh hưởng nhánh main)
+          git checkout --orphan gh-pages
+          git rm -rf .
+          git add index.html CNAME
+          git commit -m "🚀 Update Terminal Link"
+          git push origin gh-pages --force
+          
+      - name: ⏳ KEEP ALIVE
+        run: |
+          case "${{ github.event.inputs.duration }}" in
             "1h") sleep 3600 ;;
             "3h") sleep 10800 ;;
             "6h") sleep 21600 ;;
