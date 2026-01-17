@@ -29,39 +29,37 @@ jobs:
             find $HOME -name sshx -type f -exec cp {} . \; -quit
           fi
           chmod +x ./sshx
-
-      - name: 🌐 KHỞI CHẠY VÀ CẬP NHẬT WORKER KV
+- name: 🌐 KHỞI CHẠY SSHX VỚI QUYỀN ROOT
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           KV_ID: ${{ secrets.KV_NAMESPACE_ID }}
         run: |
-          # 1. Khởi chạy sshx và lưu log
-          ./sshx > sshx_log.txt 2>&1 &
+          # 1. Khởi chạy sshx dưới quyền sudo để có quyền Root ngay khi truy cập
+          # Dùng 'sudo -E' để giữ các biến môi trường nếu cần
+          sudo ./sshx > sshx_log.txt 2>&1 &
           
-          echo "⏳ Đang đợi SSHX tạo link bảo mật..."
+          echo "⏳ Đang khởi tạo Terminal Root..."
           sleep 12
           
-          # 2. Trích xuất FULL URL (Lấy toàn bộ dòng chứa link để không mất phần sau dấu #)
-          # Sử dụng Regex lấy mọi ký tự không phải khoảng trắng sau https://sshx.io/s/
+          # 2. Trích xuất FULL URL (bao gồm phần xác thực sau dấu #)
           SSHX_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
           
           if [ -z "$SSHX_URL" ]; then
-            echo "❌ LỖI: Không tìm thấy URL trong log!"
+            echo "❌ LỖI: Không lấy được URL!"
             cat sshx_log.txt
             exit 1
           fi
 
-          echo "✅ Đã lấy URL đầy đủ: $SSHX_URL"
+          echo "✅ URL Root: $SSHX_URL"
 
           # 3. Đẩy URL lên Cloudflare KV
-          # Quan trọng: Dùng "$SSHX_URL" trong dấu ngoặc kép để giữ ký tự #
-          curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/storage/kv/namespaces/$KV_ID/values/LATEST_URL" \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: text/plain" \
+          curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/storage/kv/namespaces/$KV_ID/values/LATEST_URL" `
+            -H "Authorization: Bearer $CF_API_TOKEN" `
+            -H "Content-Type: text/plain" `
             --data "$SSHX_URL"
           
-          echo "🎉 Đã cập nhật thành công! Truy cập ngay domain của bạn."
+          echo "🎉 Đã xong! Bây giờ khi vào domain, bạn sẽ thấy dấu '#' (Root) thay vì '$' (User)."
 
       - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
         run: |
