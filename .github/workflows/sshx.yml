@@ -1,4 +1,4 @@
-name: 🚀 SSHX TERMINAL - WORKER REDIRECT (DYNAMIC TIME)
+name: 🚀 SSHX TERMINAL - FULL REDIRECT
 
 on:
   workflow_dispatch:
@@ -19,57 +19,56 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📥 CÀI ĐẶT SSHX (BẢN FIX)
+      - name: 📥 CÀI ĐẶT SSHX (STABLE VERSION)
         run: |
-          # 1. Xóa file lỗi cũ nếu có
-          rm -rf sshx
-          
-          # 2. Cài đặt bằng script chính chủ
           curl -sSf https://sshx.io/get | sh
-          
-          # 3. Tìm và copy file chạy ra thư mục hiện tại
-          # Script thường cài vào ~/.sshx/sshx hoặc /usr/local/bin/sshx
+          # Copy file ra thư mục hiện tại để dễ gọi lệnh
           if [ -f "$HOME/.sshx/sshx" ]; then
             cp "$HOME/.sshx/sshx" .
-            echo "✅ Đã lấy file từ thư mục Home"
-          elif [ -f "/usr/local/bin/sshx" ]; then
-            cp "/usr/local/bin/sshx" .
-            echo "✅ Đã lấy file từ /usr/local/bin"
           else
-            # Trường hợp dự phòng: Tìm khắp nơi
             find $HOME -name sshx -type f -exec cp {} . \; -quit
           fi
-          
-          # 4. Cấp quyền chạy cho chắc chắn
           chmod +x ./sshx
-          ls -lh ./sshx
 
-- name: 🌐 KHỞI CHẠY VÀ CẬP NHẬT WORKER KV (FULL URL FIX)
+      - name: 🌐 KHỞI CHẠY VÀ CẬP NHẬT WORKER KV
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           KV_ID: ${{ secrets.KV_NAMESPACE_ID }}
         run: |
-          # 1. Khởi chạy sshx
+          # 1. Khởi chạy sshx và lưu log
           ./sshx > sshx_log.txt 2>&1 &
-          sleep 10
           
-          # 2. Trích xuất FULL URL (bao gồm cả phần sau dấu #)
-          # Sử dụng regex rộng hơn để lấy đến hết dòng
-          SSHX_URL=$(grep -o 'https://sshx.io/s/[^ ]*' sshx_log.txt | head -n 1)
+          echo "⏳ Đang đợi SSHX tạo link bảo mật..."
+          sleep 12
+          
+          # 2. Trích xuất FULL URL (Lấy toàn bộ dòng chứa link để không mất phần sau dấu #)
+          # Sử dụng Regex lấy mọi ký tự không phải khoảng trắng sau https://sshx.io/s/
+          SSHX_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
           
           if [ -z "$SSHX_URL" ]; then
-            echo "❌ Lỗi: Không tìm thấy URL!"
+            echo "❌ LỖI: Không tìm thấy URL trong log!"
+            cat sshx_log.txt
             exit 1
           fi
 
-          echo "🔗 URL Đầy đủ tìm thấy: $SSHX_URL"
+          echo "✅ Đã lấy URL đầy đủ: $SSHX_URL"
 
-          # 3. Đẩy URL lên Cloudflare KV (Bắt buộc dùng dấu ngoặc kép "$SSHX_URL")
-          # Việc dùng dấu ngoặc kép giúp giữ nguyên các ký tự đặc biệt như #
+          # 3. Đẩy URL lên Cloudflare KV
+          # Quan trọng: Dùng "$SSHX_URL" trong dấu ngoặc kép để giữ ký tự #
           curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/storage/kv/namespaces/$KV_ID/values/LATEST_URL" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: text/plain" \
             --data "$SSHX_URL"
           
-          echo "✅ Đã cập nhật FULL URL lên Worker thành công!"
+          echo "🎉 Đã cập nhật thành công! Truy cập ngay domain của bạn."
+
+      - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
+        run: |
+          DURATION="${{ github.event.inputs.duration }}"
+          case $DURATION in
+            "1h") sleep 3600 ;;
+            "3h") sleep 10800 ;;
+            "6h") sleep 21600 ;;
+            "12h") sleep 43200 ;;
+          esac
