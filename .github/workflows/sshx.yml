@@ -44,7 +44,7 @@ jobs:
           chmod +x ./sshx
           ls -lh ./sshx
 
-      - name: 🌐 KHỞI CHẠY VÀ CẬP NHẬT WORKER KV
+- name: 🌐 KHỞI CHẠY VÀ CẬP NHẬT WORKER KV (FULL URL FIX)
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
@@ -52,40 +52,24 @@ jobs:
         run: |
           # 1. Khởi chạy sshx
           ./sshx > sshx_log.txt 2>&1 &
+          sleep 10
           
-          echo "⏳ Đang khởi tạo phiên làm việc..."
-          sleep 5
-          
-          # 2. Kiểm tra log
-          cat sshx_log.txt
-          
-          # 3. Trích xuất URL (Lọc kỹ hơn để tránh lấy nhầm)
-          SSHX_URL=$(grep -o 'https://sshx.io/s/[a-zA-Z0-9]*' sshx_log.txt | head -n 1)
+          # 2. Trích xuất FULL URL (bao gồm cả phần sau dấu #)
+          # Sử dụng regex rộng hơn để lấy đến hết dòng
+          SSHX_URL=$(grep -o 'https://sshx.io/s/[^ ]*' sshx_log.txt | head -n 1)
           
           if [ -z "$SSHX_URL" ]; then
-            echo "❌ Lỗi: Không tìm thấy URL trong log!"
+            echo "❌ Lỗi: Không tìm thấy URL!"
             exit 1
           fi
 
-          echo "🔗 URL tìm thấy: $SSHX_URL"
+          echo "🔗 URL Đầy đủ tìm thấy: $SSHX_URL"
 
-          # 4. Đẩy URL lên Cloudflare KV
+          # 3. Đẩy URL lên Cloudflare KV (Bắt buộc dùng dấu ngoặc kép "$SSHX_URL")
+          # Việc dùng dấu ngoặc kép giúp giữ nguyên các ký tự đặc biệt như #
           curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/storage/kv/namespaces/$KV_ID/values/LATEST_URL" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: text/plain" \
             --data "$SSHX_URL"
           
-          echo "✅ Đã cập nhật Worker Redirect thành công!"
-
-      - name: ⏳ DUY TRÌ HỆ THỐNG
-        run: |
-          DURATION="${{ github.event.inputs.duration }}"
-          echo "🕒 Thời gian cấu hình: $DURATION"
-          
-          case $DURATION in
-            "1h") sleep 3600 ;;
-            "3h") sleep 10800 ;;
-            "6h") sleep 21600 ;;
-            "12h") sleep 43200 ;;
-            *) sleep 3600 ;;
-          esac
+          echo "✅ Đã cập nhật FULL URL lên Worker thành công!"
