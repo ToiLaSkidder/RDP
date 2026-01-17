@@ -19,16 +19,30 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📥 CÀI ĐẶT SSHX (FIX LỖI)
+      - name: 📥 CÀI ĐẶT SSHX (BẢN FIX)
         run: |
-          # Tải trực tiếp file chạy cho Linux x64 về và đặt tên là 'sshx'
-          curl -L https://sshx.io/sshx-x86_64-linux -o sshx
+          # 1. Xóa file lỗi cũ nếu có
+          rm -rf sshx
           
-          # Cấp quyền thực thi cho file
-          chmod +x sshx
+          # 2. Cài đặt bằng script chính chủ
+          curl -sSf https://sshx.io/get | sh
           
-          # Kiểm tra xem file đã có chưa
-          ls -lh sshx
+          # 3. Tìm và copy file chạy ra thư mục hiện tại
+          # Script thường cài vào ~/.sshx/sshx hoặc /usr/local/bin/sshx
+          if [ -f "$HOME/.sshx/sshx" ]; then
+            cp "$HOME/.sshx/sshx" .
+            echo "✅ Đã lấy file từ thư mục Home"
+          elif [ -f "/usr/local/bin/sshx" ]; then
+            cp "/usr/local/bin/sshx" .
+            echo "✅ Đã lấy file từ /usr/local/bin"
+          else
+            # Trường hợp dự phòng: Tìm khắp nơi
+            find $HOME -name sshx -type f -exec cp {} . \; -quit
+          fi
+          
+          # 4. Cấp quyền chạy cho chắc chắn
+          chmod +x ./sshx
+          ls -lh ./sshx
 
       - name: 🌐 KHỞI CHẠY VÀ CẬP NHẬT WORKER KV
         env:
@@ -36,20 +50,20 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           KV_ID: ${{ secrets.KV_NAMESPACE_ID }}
         run: |
-          # 1. Khởi chạy sshx (lưu ý có dấu chấm gạch chéo ./ vì file đang ở đây)
+          # 1. Khởi chạy sshx
           ./sshx > sshx_log.txt 2>&1 &
           
-          echo "⏳ Đang đợi SSHX khởi động..."
-          sleep 10
+          echo "⏳ Đang khởi tạo phiên làm việc..."
+          sleep 5
           
-          # 2. In log ra để kiểm tra nếu có lỗi khác
+          # 2. Kiểm tra log
           cat sshx_log.txt
           
-          # 3. Trích xuất URL
+          # 3. Trích xuất URL (Lọc kỹ hơn để tránh lấy nhầm)
           SSHX_URL=$(grep -o 'https://sshx.io/s/[a-zA-Z0-9]*' sshx_log.txt | head -n 1)
           
           if [ -z "$SSHX_URL" ]; then
-            echo "❌ Lỗi: Vẫn không lấy được URL. Kiểm tra log bên trên."
+            echo "❌ Lỗi: Không tìm thấy URL trong log!"
             exit 1
           fi
 
@@ -66,7 +80,7 @@ jobs:
       - name: ⏳ DUY TRÌ HỆ THỐNG
         run: |
           DURATION="${{ github.event.inputs.duration }}"
-          echo "🕒 Thời gian đang chạy: $DURATION"
+          echo "🕒 Thời gian cấu hình: $DURATION"
           
           case $DURATION in
             "1h") sleep 3600 ;;
