@@ -1,82 +1,86 @@
-name: 🚀 SSHX REDIRECT (HOSTED ON RDP REPO)
+name: 🚀 SSHX FOR TOILASKIDDER (RDP REPO)
 
 on:
   workflow_dispatch:
     inputs:
       duration:
-        description: '🕐 Thời gian chạy'
+        description: '🕐 Thời gian duy trì'
         default: '12h'
         type: choice
         options: ['1h', '3h', '6h', '12h']
 
 jobs:
-  Deploy:
+  Deploy-Redirect:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Quyền quan trọng để push vào nhánh gh-pages
       
     steps:
-      - name: 📥 CHECKOUT
+      - name: 📥 CHECKOUT CODE
         uses: actions/checkout@v4
 
-- name: 📥 CÀI ĐẶT SSHX (BẢN FIX TOÀN DIỆN)
+      - name: 📥 CÀI ĐẶT SSHX (SMART SEARCH)
         run: |
-          # 1. Chạy script cài đặt chuẩn
+          # 1. Cài đặt bằng script chính chủ
           curl -sSf https://sshx.io/get | sh
           
-          # 2. Tìm vị trí file sshx vừa cài
-          # Thử tìm trong /usr/local/bin (vị trí hệ thống) hoặc thư mục Home
-          SSHX_PATH=$(which sshx || find $HOME -name sshx -type f | head -n 1)
+          # 2. Tìm vị trí chính xác của file thực thi (cho dù nó ở /usr/local/bin hay .sshx)
+          SSHX_BIN=$(which sshx || find $HOME -name sshx -type f | head -n 1)
           
-          if [ -z "$SSHX_PATH" ]; then
+          if [ -z "$SSHX_BIN" ]; then
             echo "❌ Không tìm thấy file sshx sau khi cài đặt!"
             exit 1
           fi
           
-          echo "✅ Tìm thấy sshx tại: $SSHX_PATH"
-          cp "$SSHX_PATH" ./sshx
-          chmod +x ./sshx
+          # 3. Copy ra thư mục hiện tại để sử dụng
+          cp "$SSHX_BIN" ./sshx_bin
+          chmod +x ./sshx_bin
+          echo "✅ Đã sẵn sàng: ./sshx_bin"
 
-      - name: 🌐 KHỞI CHẠY ROOT SSHX & LẤY URL
+      - name: 🌐 KHỞI CHẠY ROOT SSHX
         run: |
-          # Chạy file sshx đã copy ra thư mục hiện tại
-          sudo ./sshx > sshx_log.txt 2>&1 &
+          # Chạy với sudo để có quyền Root hoàn toàn
+          sudo ./sshx_bin > sshx_log.txt 2>&1 &
           
-          echo "⏳ Đang đợi link SSHX..."
+          echo "⏳ Đang tạo link kết nối..."
           sleep 12
           
-          # Trích xuất FULL URL
+          # Trích xuất FULL URL (Lấy sạch mọi ký tự sau dấu #)
           SSHX_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
           
           if [ -z "$SSHX_URL" ]; then
-            echo "❌ Lỗi: Không lấy được URL từ log!"
+            echo "❌ Lỗi: Không lấy được URL. Nội dung log:"
             cat sshx_log.txt
             exit 1
           fi
           
-          echo "URL=$SSHX_URL" >> $GITHUB_ENV
-          echo "🔗 URL Của ToiLaSkidder: $SSHX_URL"
-      - name: ⚡ PUSH TO GH-PAGES (BRANCH RIÊNG)
+          echo "URL_FINAL=$SSHX_URL" >> $GITHUB_ENV
+          echo "🔗 Terminal của bạn: $SSHX_URL"
+
+      - name: ⚡ PUSH REDIRECT TO GH-PAGES
         run: |
-          # Tạo file redirect
-          echo "<html><head><script>location.replace('${{ env.URL }}')</script></head></html>" > index.html
+          # 1. Tạo trang redirect (Sử dụng replace để không lưu lịch sử trình duyệt)
+          echo "<html><head><script>location.replace('${{ env.URL_FINAL }}')</script></head></html>" > index.html
           
-          # File CNAME định danh cho Domain riêng của bạn
+          # 2. Tạo file CNAME để giữ domain riêng (Khớp với cấu hình Cloudflare)
           echo "ssh.nghuyzzz.qzz.io" > CNAME
           
-          # Cấu hình Git
+          # 3. Thiết lập Git nhanh
           git config --global user.name "ToiLaSkidder"
           git config --global user.email "ToiLaSkidder@users.noreply.github.com"
           
-          # Đẩy lên nhánh gh-pages của repo RDP (không ảnh hưởng nhánh main)
+          # 4. Tạo nhánh gh-pages độc lập (Không làm bẩn nhánh main)
           git checkout --orphan gh-pages
           git rm -rf .
           git add index.html CNAME
-          git commit -m "🚀 Update Terminal Link"
-          git push origin gh-pages --force
+          git commit -m "🚀 Terminal Updated: $(date)"
           
-      - name: ⏳ KEEP ALIVE
+          # 5. Ép push vào nhánh gh-pages
+          git push origin gh-pages --force
+
+      - name: ⏳ DUY TRÌ HỆ THỐNG
         run: |
+          echo "🕒 Hệ thống đang chạy trong ${{ github.event.inputs.duration }}..."
           case "${{ github.event.inputs.duration }}" in
             "1h") sleep 3600 ;;
             "3h") sleep 10800 ;;
