@@ -19,8 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📥 CÀI ĐẶT SSHX
-        run: curl -sSf https://sshx.io/get | sh
+      - name: 📥 CÀI ĐẶT SSHX (FIX LỖI)
+        run: |
+          # Tải trực tiếp file chạy cho Linux x64 về và đặt tên là 'sshx'
+          curl -L https://sshx.io/sshx-x86_64-linux -o sshx
+          
+          # Cấp quyền thực thi cho file
+          chmod +x sshx
+          
+          # Kiểm tra xem file đã có chưa
+          ls -lh sshx
 
       - name: 🌐 KHỞI CHẠY VÀ CẬP NHẬT WORKER KV
         env:
@@ -28,22 +36,26 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           KV_ID: ${{ secrets.KV_NAMESPACE_ID }}
         run: |
-          # 1. Khởi chạy sshx trong nền
+          # 1. Khởi chạy sshx (lưu ý có dấu chấm gạch chéo ./ vì file đang ở đây)
           ./sshx > sshx_log.txt 2>&1 &
+          
+          echo "⏳ Đang đợi SSHX khởi động..."
           sleep 10
           
-          # 2. Trích xuất URL sshx
+          # 2. In log ra để kiểm tra nếu có lỗi khác
+          cat sshx_log.txt
+          
+          # 3. Trích xuất URL
           SSHX_URL=$(grep -o 'https://sshx.io/s/[a-zA-Z0-9]*' sshx_log.txt | head -n 1)
           
           if [ -z "$SSHX_URL" ]; then
-            echo "❌ Lỗi: Không lấy được URL từ SSHX!"
-            cat sshx_log.txt
+            echo "❌ Lỗi: Vẫn không lấy được URL. Kiểm tra log bên trên."
             exit 1
           fi
 
-          echo "🔗 URL mới: $SSHX_URL"
+          echo "🔗 URL tìm thấy: $SSHX_URL"
 
-          # 3. Đẩy URL lên Cloudflare KV
+          # 4. Đẩy URL lên Cloudflare KV
           curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/storage/kv/namespaces/$KV_ID/values/LATEST_URL" \
             -H "Authorization: Bearer $CF_API_TOKEN" \
             -H "Content-Type: text/plain" \
@@ -63,5 +75,3 @@ jobs:
             "12h") sleep 43200 ;;
             *) sleep 3600 ;;
           esac
-          
-          echo "🎯 Đã hết thời gian phiên làm việc."
