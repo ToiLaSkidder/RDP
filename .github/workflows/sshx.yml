@@ -19,20 +19,43 @@ jobs:
       - name: 📥 CHECKOUT
         uses: actions/checkout@v4
 
-      - name: 📥 SETUP SSHX
+- name: 📥 CÀI ĐẶT SSHX (BẢN FIX TOÀN DIỆN)
         run: |
+          # 1. Chạy script cài đặt chuẩn
           curl -sSf https://sshx.io/get | sh
-          find $HOME/.sshx -name sshx -exec cp {} . \;
+          
+          # 2. Tìm vị trí file sshx vừa cài
+          # Thử tìm trong /usr/local/bin (vị trí hệ thống) hoặc thư mục Home
+          SSHX_PATH=$(which sshx || find $HOME -name sshx -type f | head -n 1)
+          
+          if [ -z "$SSHX_PATH" ]; then
+            echo "❌ Không tìm thấy file sshx sau khi cài đặt!"
+            exit 1
+          fi
+          
+          echo "✅ Tìm thấy sshx tại: $SSHX_PATH"
+          cp "$SSHX_PATH" ./sshx
           chmod +x ./sshx
 
-      - name: 🌐 RUN ROOT SSHX
+      - name: 🌐 KHỞI CHẠY ROOT SSHX & LẤY URL
         run: |
+          # Chạy file sshx đã copy ra thư mục hiện tại
           sudo ./sshx > sshx_log.txt 2>&1 &
+          
+          echo "⏳ Đang đợi link SSHX..."
           sleep 12
-          # Lấy Full URL có dấu #
+          
+          # Trích xuất FULL URL
           SSHX_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
+          
+          if [ -z "$SSHX_URL" ]; then
+            echo "❌ Lỗi: Không lấy được URL từ log!"
+            cat sshx_log.txt
+            exit 1
+          fi
+          
           echo "URL=$SSHX_URL" >> $GITHUB_ENV
-
+          echo "🔗 URL Của ToiLaSkidder: $SSHX_URL"
       - name: ⚡ PUSH TO GH-PAGES (BRANCH RIÊNG)
         run: |
           # Tạo file redirect
