@@ -1,10 +1,9 @@
-name: 🚀 SSHX REDIRECT FOR TOILASKIDDER
+name: 🚀 SSHX FIXED URL FOR TOILASKIDDER
 
 on:
   workflow_dispatch:
     inputs:
       duration:
-        description: '🕐 Thời gian duy trì'
         default: '12h'
         type: choice
         options: ['1h', '3h', '6h', '12h']
@@ -16,49 +15,59 @@ jobs:
       contents: write
       
     steps:
-      - name: 📥 CHECKOUT CODE
+      - name: 📥 CHECKOUT
         uses: actions/checkout@v4
 
-      - name: 📥 CÀI ĐẶT SSHX
+      - name: 📥 INSTALL SSHX
         run: |
           curl -sSf https://sshx.io/get | sh
-          # Tìm file thực thi bất kể nó nằm ở đâu
+          # Tìm file bin chính xác
           SSHX_BIN=$(which sshx || find $HOME -name sshx -type f | head -n 1)
           cp "$SSHX_BIN" ./sshx_bin
-          chmod +x ./sshx_bin
 
-      - name: 🌐 KHỞI CHẠY ROOT SSHX
+      - name: 🌐 RUN ROOT & CAPTURE FULL URL
         run: |
+          # Chạy sudo và bắt log
           sudo ./sshx_bin > sshx_log.txt 2>&1 &
-          sleep 12
-          # Trích xuất link bao gồm cả phần token sau dấu #
-          SSHX_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
-          echo "URL_FINAL=$SSHX_URL" >> $GITHUB_ENV
-          echo "✅ Link Terminal: $SSHX_URL"
+          
+          echo "⏳ Đang đợi link (15s)..."
+          sleep 15
+          
+          # Sử dụng regex mạnh hơn để lấy toàn bộ URL kể cả dấu #
+          # grep -oP yêu cầu Perl-style regex để bắt chính xác các ký tự đặc biệt
+          RAW_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
+          
+          if [ -z "$RAW_URL" ]; then
+            echo "❌ Không tìm thấy URL!"
+            cat sshx_log.txt
+            exit 1
+          fi
+
+          echo "✅ Đã bắt được URL: $RAW_URL"
+          # Lưu vào file thay vì biến env để tránh lỗi escape ký tự lạ
+          echo "$RAW_URL" > url_source.txt
 
       - name: ⚡ PUSH TO GH-PAGES
         run: |
-          # 1. Tạo trang redirect (Static HTML)
-          echo "<html><head><script>location.replace('${{ env.URL_FINAL }}')</script></head></html>" > index.html
+          # Đọc URL từ file
+          SSHX_URL=$(cat url_source.txt)
           
-          # 2. Quan trọng: Tên miền của bạn
+          # Tạo index.html sử dụng template literal để tránh lỗi dấu nháy
+          echo "<html><head><script>location.replace(\"$SSHX_URL\")</script></head></html>" > index.html
+          
           echo "sshx.nghuyzzz.qzz.io" > CNAME
-          
-          # 3. Ép GitHub bỏ qua Jekyll để chạy nhanh hơn
           touch .nojekyll
           
-          # 4. Cấu hình Git
           git config --global user.name "ToiLaSkidder"
           git config --global user.email "ToiLaSkidder@users.noreply.github.com"
           
-          # 5. Ép push vào nhánh gh-pages của repo RDP
           git checkout --orphan gh-pages
           git rm -rf .
           git add index.html CNAME .nojekyll
-          git commit -m "🚀 Terminal Updated: $(date)"
+          git commit -m "🚀 Terminal Fixed URL: $(date)"
           git push origin gh-pages --force
 
-      - name: ⏳ DUY TRÌ PHIÊN
+      - name: ⏳ KEEP ALIVE
         run: |
           case "${{ github.event.inputs.duration }}" in
             "1h") sleep 3600 ;; "3h") sleep 10800 ;; "6h") sleep 21600 ;; "12h") sleep 43200 ;;
