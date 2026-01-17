@@ -1,0 +1,131 @@
+name: 🚀 SEVER AI STV PREMIUM - 12H NGROK EDITION
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: '🕐 Thời gian sử dụng'
+        required: false
+        default: '12h'
+        type: choice
+        options:
+        - '1h'
+        - '3h' 
+        - '6h'
+        - '12h'
+
+jobs:
+  Premium-RDP-Setup:
+    runs-on: windows-latest
+    timeout-minutes: 720 
+    
+    steps:
+      - name: 🎯 KHỞI ĐỘNG HỆ THỐNG
+        run: |
+          Write-Host "`n🤖 AI STV PREMIUM RDP SERVER (NGROK)" -ForegroundColor Yellow
+          Write-Host "⚡ Powered by AI STV" -ForegroundColor Green
+          Write-Host "🕒 Thời gian: ${{ github.event.inputs.duration }}" -ForegroundColor Magenta
+          
+      - name: 🔧 CẤU HÌNH HỆ THỐNG RDP
+        run: |
+          Write-Host "🛠️ Đang cấu hình Windows..." -ForegroundColor Yellow
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
+          netsh advfirewall firewall add rule name="RDP-Ngrok" dir=in action=allow protocol=TCP localport=3389 profile=any
+          Start-Service -Name TermService -ErrorAction SilentlyContinue
+
+      - name: 👤 TẠO TÀI KHOẢN NGHUYZZZ
+        run: |
+          Write-Host "`n👤 ĐANG TẠO USER: nghuyzzz" -ForegroundColor Yellow
+          $matKhau = "Huyngu67@" 
+          $securePass = ConvertTo-SecureString $matKhau -AsPlainText -Force
+          
+          Remove-LocalUser -Name "nghuyzzz" -ErrorAction SilentlyContinue
+          New-LocalUser -Name "nghuyzzz" -Password $securePass -AccountNeverExpires -Description "AI STV Premium Admin"
+          Set-LocalUser -Name "nghuyzzz" -PasswordNeverExpires $true
+          
+          Add-LocalGroupMember -Group "Administrators" -Member "nghuyzzz"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "nghuyzzz"
+          Write-Host "│ ✅ User: nghuyzzz | Pass: Huyngu67@" -ForegroundColor Green
+
+      - name: 🌐 THIẾT LẬP NGROK TUNNEL
+        env:
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: |
+          Write-Host "`n🌐 ĐANG CÀI ĐẶT NGROK..." -ForegroundColor Yellow
+          Invoke-WebRequest https://bin.equinox.io/c/b34edq6tiW5/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+          Expand-Archive ngrok.zip -DestinationPath .
+          
+          Write-Host "🔗 Đang khởi tạo Tunnel..." -ForegroundColor Blue
+          .\ngrok.exe config add-authtoken $env:NGROK_AUTH_TOKEN
+          
+          # Chạy ngrok ở chế độ nền
+          Start-Process .\ngrok.exe -ArgumentList "tcp 3389" -WindowStyle Hidden
+          
+          # Đợi ngrok lấy địa chỉ IP công khai
+          Start-Sleep -Seconds 10
+          $ngrokUrl = (Invoke-RestMethod http://localhost:4040/api/tunnels).tunnels.public_url
+          
+          if ($ngrokUrl) {
+              $cleanUrl = $ngrokUrl.Replace("tcp://", "")
+              echo "NGROK_ADDRESS=$cleanUrl" >> $env:GITHUB_ENV
+              Write-Host "│ ✅ Địa chỉ kết nối: $cleanUrl" -ForegroundColor Green
+          } else {
+              Write-Host "│ ❌ Lỗi: Không thể lấy địa chỉ Ngrok. Hãy kiểm tra Auth Token!" -ForegroundColor Red
+              exit 1
+          }
+
+      - name: 🎉 THÔNG TIN KẾT NỐI
+        run: |
+          $durationInput = "${{ github.event.inputs.duration }}"
+          switch ($durationInput) {
+              "1h" { $totalMinutes = 60 }
+              "3h" { $totalMinutes = 180 }
+              "6h" { $totalMinutes = 360 }
+              "12h" { $totalMinutes = 720 }
+          }
+          $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
+          $endTime = ([System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)).AddMinutes($totalMinutes)
+          
+          Write-Host "`n┌───────────────────────────────────────────┐" -ForegroundColor Cyan
+          Write-Host "│              🎉 KẾT NỐI SẴN SÀNG!                │" -ForegroundColor Cyan
+          Write-Host "├───────────────────────────────────────────┤" -ForegroundColor Cyan
+          Write-Host "│ 🌐  Địa chỉ: $env:NGROK_ADDRESS" -ForegroundColor White
+          Write-Host "│ 👤  Tài khoản: nghuyzzz" -ForegroundColor White
+          Write-Host "│ 🔐  Mật khẩu: Huyngu67@" -ForegroundColor White
+          Write-Host "│ ⏰  Kết thúc: $($endTime.ToString('HH:mm:ss dd/MM'))" -ForegroundColor Yellow
+          Write-Host "├───────────────────────────────────────────┤" -ForegroundColor Cyan
+          Write-Host "│ 💡  HD: Dán địa chỉ trên vào Remote Desktop   │" -ForegroundColor Gray
+          Write-Host "└───────────────────────────────────────────┘" -ForegroundColor Cyan
+          echo "TOTAL_MINUTES=$totalMinutes" >> $env:GITHUB_ENV
+
+      - name: ⏳ DUY TRÌ PHIÊN LÀM VIỆC
+        run: |
+          $totalMinutes = $env:TOTAL_MINUTES
+          $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
+          $endTime = ([System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)).AddMinutes($totalMinutes)
+          
+          # Giám sát dịch vụ TermService ngầm
+          Start-Job -ScriptBlock { while($true){ if((Get-Service TermService).Status -ne 'Running'){Start-Service TermService}; Start-Sleep 30 } }
+
+          $frames = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
+          $i = 0
+          while ($true) {
+              $now = [System.TimeZoneInfo]::ConvertTimeFromUtc((Get-Date).ToUniversalTime(), $timeZone)
+              $left = $endTime - $now
+              if ($left.TotalSeconds -le 0) { break }
+              
+              $frame = $frames[$i % $frames.Length]
+              Write-Host ("`r$frame Còn lại: {0:D2}h {1:D2}m {2:D2}s" -f $left.Hours, $left.Minutes, $left.Seconds) -NoNewline -ForegroundColor Cyan
+              $i++
+              Start-Sleep -Seconds 1
+          }
+          Write-Host "`n🎯 ĐÃ HẾT THỜI GIAN!" -ForegroundColor Red
+
+      - name: 🧹 DỌN DẸP
+        if: always()
+        run: |
+          Stop-Process -Name ngrok -ErrorAction SilentlyContinue
+          Get-Job | Stop-Job | Remove-Job
+          Write-Host "🎉 Hệ thống đã đóng." -ForegroundColor Green
