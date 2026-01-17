@@ -1,4 +1,4 @@
-name: 🚀 SSHX FOR TOILASKIDDER (RDP REPO)
+name: 🚀 SSHX REDIRECT FOR TOILASKIDDER
 
 on:
   workflow_dispatch:
@@ -10,80 +10,56 @@ on:
         options: ['1h', '3h', '6h', '12h']
 
 jobs:
-  Deploy-Redirect:
+  Deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Quyền quan trọng để push vào nhánh gh-pages
+      contents: write
       
     steps:
       - name: 📥 CHECKOUT CODE
         uses: actions/checkout@v4
 
-      - name: 📥 CÀI ĐẶT SSHX (SMART SEARCH)
+      - name: 📥 CÀI ĐẶT SSHX
         run: |
-          # 1. Cài đặt bằng script chính chủ
           curl -sSf https://sshx.io/get | sh
-          
-          # 2. Tìm vị trí chính xác của file thực thi (cho dù nó ở /usr/local/bin hay .sshx)
+          # Tìm file thực thi bất kể nó nằm ở đâu
           SSHX_BIN=$(which sshx || find $HOME -name sshx -type f | head -n 1)
-          
-          if [ -z "$SSHX_BIN" ]; then
-            echo "❌ Không tìm thấy file sshx sau khi cài đặt!"
-            exit 1
-          fi
-          
-          # 3. Copy ra thư mục hiện tại để sử dụng
           cp "$SSHX_BIN" ./sshx_bin
           chmod +x ./sshx_bin
-          echo "✅ Đã sẵn sàng: ./sshx_bin"
 
       - name: 🌐 KHỞI CHẠY ROOT SSHX
         run: |
-          # Chạy với sudo để có quyền Root hoàn toàn
           sudo ./sshx_bin > sshx_log.txt 2>&1 &
-          
-          echo "⏳ Đang tạo link kết nối..."
           sleep 12
-          
-          # Trích xuất FULL URL (Lấy sạch mọi ký tự sau dấu #)
+          # Trích xuất link bao gồm cả phần token sau dấu #
           SSHX_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1)
-          
-          if [ -z "$SSHX_URL" ]; then
-            echo "❌ Lỗi: Không lấy được URL. Nội dung log:"
-            cat sshx_log.txt
-            exit 1
-          fi
-          
           echo "URL_FINAL=$SSHX_URL" >> $GITHUB_ENV
-          echo "🔗 Terminal của bạn: $SSHX_URL"
+          echo "✅ Link Terminal: $SSHX_URL"
 
-      - name: ⚡ PUSH REDIRECT TO GH-PAGES
+      - name: ⚡ PUSH TO GH-PAGES
         run: |
-          # 1. Tạo trang redirect (Sử dụng replace để không lưu lịch sử trình duyệt)
+          # 1. Tạo trang redirect (Static HTML)
           echo "<html><head><script>location.replace('${{ env.URL_FINAL }}')</script></head></html>" > index.html
           
-          # 2. Tạo file CNAME để giữ domain riêng (Khớp với cấu hình Cloudflare)
-          echo "ssh.nghuyzzz.qzz.io" > CNAME
+          # 2. Quan trọng: Tên miền của bạn
+          echo "sshx.nghuyzzz.qzz.io" > CNAME
           
-          # 3. Thiết lập Git nhanh
+          # 3. Ép GitHub bỏ qua Jekyll để chạy nhanh hơn
+          touch .nojekyll
+          
+          # 4. Cấu hình Git
           git config --global user.name "ToiLaSkidder"
           git config --global user.email "ToiLaSkidder@users.noreply.github.com"
           
-          # 4. Tạo nhánh gh-pages độc lập (Không làm bẩn nhánh main)
+          # 5. Ép push vào nhánh gh-pages của repo RDP
           git checkout --orphan gh-pages
           git rm -rf .
-          git add index.html CNAME
+          git add index.html CNAME .nojekyll
           git commit -m "🚀 Terminal Updated: $(date)"
-          
-          # 5. Ép push vào nhánh gh-pages
           git push origin gh-pages --force
 
-      - name: ⏳ DUY TRÌ HỆ THỐNG
+      - name: ⏳ DUY TRÌ PHIÊN
         run: |
-          echo "🕒 Hệ thống đang chạy trong ${{ github.event.inputs.duration }}..."
           case "${{ github.event.inputs.duration }}" in
-            "1h") sleep 3600 ;;
-            "3h") sleep 10800 ;;
-            "6h") sleep 21600 ;;
-            "12h") sleep 43200 ;;
+            "1h") sleep 3600 ;; "3h") sleep 10800 ;; "6h") sleep 21600 ;; "12h") sleep 43200 ;;
           esac
