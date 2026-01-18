@@ -17,45 +17,25 @@ jobs:
           
       - name: 🚀 DEPLOY TERMINAL GATEWAY
         run: |
-          # 1. Tải sshx và ép buộc cài đặt vào thư mục hiện tại
-          echo ">>> [SYSTEM] DOWNLOADING SSHX..."
+          # 1. Tải và cài đặt sshx
           curl -sSf https://sshx.io/get | sh
           
-          # 2. Kiểm tra vị trí file và cấp quyền thực thi
-          # Thường thì lệnh trên cài vào /usr/local/bin hoặc thư mục hiện tại
-          # Chúng ta sẽ copy nó ra thư mục làm việc để quản lý
-          if [ -f "/usr/local/bin/sshx" ]; then
-            cp /usr/local/bin/sshx ./sshx
-          fi
-          chmod +x ./sshx
-          
-          # 3. Khởi chạy service
+          # 2. Chạy sshx và ghi log
           echo ">>> [SYSTEM] STARTING TUNNEL SERVICE..."
-          ./sshx > sshx_output.log 2>&1 &
+          /usr/local/bin/sshx > sshx_output.log 2>&1 &
           
-          # 4. Đợi tunnel khởi tạo
-          sleep 20
+          # 3. Đợi tunnel khởi tạo (Tăng lên 25s cho chắc chắn)
+          sleep 25
           
-          # 5. Kiểm tra log và trích xuất link
+          # 4. TRÍCH XUẤT LINK (SỬ DỤNG SED ĐỂ LẤY TOÀN BỘ DÒNG)
           echo ">>> [ACCESS_LINK_START]"
-          if [ -f sshx_output.log ]; then
-            LINK=$(grep -ao 'https://sshx.io/s/[a-zA-Z0-9]*' sshx_output.log | head -n 1)
-            if [ -z "$LINK" ]; then
-              echo "FAILED_TO_GENERATE_LINK"
-              echo "--- DEBUG LOG CONTENT ---"
-              cat sshx_output.log
-              exit 1
-            else
-              echo "$LINK"
-            fi
-          else
-            echo "LOG_FILE_NOT_FOUND"
-            exit 1
-          fi
+          # Lệnh này tìm dòng có chứa https://sshx.io/s/ và lấy hết toàn bộ dòng đó (bao gồm cả dấu #)
+          sed -n '/https:\/\/sshx.io\/s\//p' sshx_output.log | head -n 1 | grep -o 'https://sshx.io/s/[^ ]*'
           echo ">>> [ACCESS_LINK_END]"
           
           echo "------------------------------------------------------------"
           echo ">>> [STATUS] VPS ACTIVE FOR 4 HOURS"
           echo "------------------------------------------------------------"
           
+          # Giữ workflow chạy
           sleep 14400
