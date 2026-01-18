@@ -1,4 +1,4 @@
-name: 🚀 SSHX ULTIMATE REFRESH
+name: 🚀 SSHX FINAL REWRITE FOR TOILASKIDDER
 
 on:
   workflow_dispatch:
@@ -18,66 +18,68 @@ jobs:
       - name: 📥 CHECKOUT
         uses: actions/checkout@v4
 
-      - name: 📥 INSTALL SSHX
+      - name: 📥 CÀI ĐẶT SSHX
         run: |
           curl -sSf https://sshx.io/get | sh
           SSHX_BIN=$(which sshx || find $HOME -name sshx -type f | head -n 1)
           cp "$SSHX_BIN" ./sshx_bin
 
-      - name: 🌐 GET CLEAN URL
+      - name: 🌐 LẤY URL VÀ LÀM SẠCH TUYỆT ĐỐI
         run: |
           sudo ./sshx_bin > sshx_log.txt 2>&1 &
           sleep 15
-          # Tẩy sạch mã màu ANSI và ký tự rác
-          CLEAN_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1 | sed 's/\x1b\[[0-9;]*m//g' | sed 's/[^a-zA-Z0-9#?=&/_.:-]*$//')
-          echo "URL_FINAL=$CLEAN_URL" >> $GITHUB_ENV
-          echo "✅ URL Mới: $CLEAN_URL"
+          
+          # 1. Lấy link thô và xóa mã màu ANSI
+          RAW_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1 | sed 's/\x1b\[[0-9;]*m//g')
+          
+          # 2. Xử lý lỗi lặp dấu # (Chỉ lấy đến dấu # thứ hai thì dừng lại)
+          # Logic: Tách link tại dấu # và chỉ giữ lại phần ID đầu tiên
+          BASE_PART=$(echo "$RAW_URL" | cut -d'#' -f1)
+          TOKEN_PART=$(echo "$RAW_URL" | cut -d'#' -f2)
+          CLEAN_URL="${BASE_PART}#${TOKEN_PART}"
+          
+          # 3. Loại bỏ ký tự lạ cuối cùng
+          FINAL_URL=$(echo "$CLEAN_URL" | sed 's/[^a-zA-Z0-9#?=&/_.:-]*$//')
 
-      - name: ⚡ SUPER FORCE PUSH
+          echo "✅ URL ĐÃ FIX: $FINAL_URL"
+          echo "$FINAL_URL" > url_source.txt
+
+      - name: ⚡ PUSH ĐÈ NHÁNH ĐỂ CẬP NHẬT PAGES
         run: |
-          # 1. Tạo index.html với kỹ thuật Cache-Busting đa tầng
-          # Sử dụng tham số ?v=[timestamp] để ép CDN cập nhật
+          SSHX_URL=$(cat url_source.txt)
+          TS=$(date +%s)
+          
+          # Tạo trang redirect sạch
           cat <<EOF > index.html
           <!DOCTYPE html>
           <html>
           <head>
               <meta charset="UTF-8">
-              <meta http-equiv="cache-control" content="no-cache, must-revalidate, post-check=0, pre-check=0">
-              <meta http-equiv="expires" content="0">
-              <meta http-equiv="pragma" content="no-cache">
-              <title>Updating Terminal...</title>
+              <title>Terminal Loading...</title>
               <script>
-                  // Thêm timestamp ngẫu nhiên vào link SSHX
-                  const target = "${{ env.URL_FINAL }}";
-                  const cleanTarget = target.split('?')[0] + "#" + target.split('#')[1];
-                  
-                  // Chuyển hướng ngay lập tức
-                  window.location.replace(cleanTarget);
+                  // Phá cache bằng timestamp và redirect
+                  const target = "$SSHX_URL";
+                  window.location.replace(target);
               </script>
           </head>
-          <body style="background:#000;color:#0f0;font-family:monospace;padding:20px;">
-              > FORCE UPDATING VERSION: $(date +%s)...<br>
-              > REDIRECTING TO: ${{ env.URL_FINAL }}
+          <body style="background:#000;color:#0f0;text-align:center;padding-top:20%;font-family:monospace;">
+              > INITIALIZING CLEAN SESSION: $TS
           </body>
           </html>
           EOF
           
-          # 2. Cấu hình định danh
           echo "sshx.nghuyzzz.qzz.io" > CNAME
           touch .nojekyll
           
-          # 3. Git config
           git config --global user.name "ToiLaSkidder"
           git config --global user.email "ToiLaSkidder@users.noreply.github.com"
           
-          # 4. CHIẾN THUẬT: Reset hoàn toàn lịch sử nhánh gh-pages
-          git checkout --orphan gh-pages-temp
+          # Ép GitHub Pages cập nhật bằng cách xóa và đẩy mới
+          git checkout --orphan gh-pages
           git rm -rf .
           git add index.html CNAME .nojekyll
-          git commit -m "🚀 Reset & Force Update: $(date +%s)"
-          
-          # Đẩy đè để GitHub Pages phải khởi động lại quy trình Deploy
-          git push origin gh-pages-temp:gh-pages --force
+          git commit -m "🚀 Fix duplicated URL & Cache: $TS"
+          git push origin gh-pages --force
 
       - name: ⏳ KEEP ALIVE
         run: |
