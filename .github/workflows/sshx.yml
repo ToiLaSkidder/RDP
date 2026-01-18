@@ -1,4 +1,4 @@
-name: 🚀 SSHX FINAL REWRITE FOR TOILASKIDDER
+name: 🚀 SSHX MATRIX EDITION
 
 on:
   workflow_dispatch:
@@ -18,67 +18,94 @@ jobs:
       - name: 📥 CHECKOUT
         uses: actions/checkout@v4
 
-      - name: 📥 CÀI ĐẶT SSHX
+      - name: 📥 SETUP BINARY
         run: |
           curl -sSf https://sshx.io/get | sh
-          SSHX_BIN=$(which sshx || find $HOME -name sshx -type f | head -n 1)
-          cp "$SSHX_BIN" ./sshx_bin
+          find $HOME -name sshx -type f -exec cp {} ./sshx_bin \;
+          chmod +x ./sshx_bin
 
-      - name: 🌐 LẤY URL VÀ LÀM SẠCH TUYỆT ĐỐI
+      - name: 🌐 CAPTURE & PURGE URL
         run: |
           sudo ./sshx_bin > sshx_log.txt 2>&1 &
           sleep 15
-          
-          # 1. Lấy link thô và xóa mã màu ANSI
+          # Tẩy sạch mã ANSI và lọc link chuẩn
           RAW_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1 | sed 's/\x1b\[[0-9;]*m//g')
-          
-          # 2. Xử lý lỗi lặp dấu # (Chỉ lấy đến dấu # thứ hai thì dừng lại)
-          # Logic: Tách link tại dấu # và chỉ giữ lại phần ID đầu tiên
-          BASE_PART=$(echo "$RAW_URL" | cut -d'#' -f1)
-          TOKEN_PART=$(echo "$RAW_URL" | cut -d'#' -f2)
-          CLEAN_URL="${BASE_PART}#${TOKEN_PART}"
-          
-          # 3. Loại bỏ ký tự lạ cuối cùng
-          FINAL_URL=$(echo "$CLEAN_URL" | sed 's/[^a-zA-Z0-9#?=&/_.:-]*$//')
+          # Fix lỗi lặp dấu # nếu có
+          CLEAN_URL=$(echo "$RAW_URL" | awk -F'#' '{print $1" #"$2}' | tr -d ' ')
+          echo "URL_FINAL=$CLEAN_URL" >> $GITHUB_ENV
 
-          echo "✅ URL ĐÃ FIX: $FINAL_URL"
-          echo "$FINAL_URL" > url_source.txt
-
-      - name: ⚡ PUSH ĐÈ NHÁNH ĐỂ CẬP NHẬT PAGES
+      - name: ⚡ DEPLOY MATRIX INTERFACE
         run: |
-          SSHX_URL=$(cat url_source.txt)
-          TS=$(date +%s)
-          
-          # Tạo trang redirect sạch
+          VERSION=$(date +%s)
           cat <<EOF > index.html
           <!DOCTYPE html>
           <html>
           <head>
               <meta charset="UTF-8">
-              <title>Terminal Loading...</title>
-              <script>
-                  // Phá cache bằng timestamp và redirect
-                  const target = "$SSHX_URL";
-                  window.location.replace(target);
-              </script>
+              <title>SYSTEM OVERRIDE | TOILASKIDDER</title>
+              <style>
+                  canvas { display: block; position: fixed; top: 0; left: 0; z-index: -1; }
+                  body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+                  .panel { background: rgba(0, 20, 0, 0.8); border: 2px solid #0f0; padding: 30px; box-shadow: 0 0 30px #0f0; text-align: left; min-width: 400px; z-index: 1; }
+                  .line { margin: 10px 0; font-size: 16px; white-space: nowrap; overflow: hidden; border-right: 2px solid #0f0; animation: typing 2s steps(40), blink 0.5s step-end infinite; }
+                  @keyframes typing { from { width: 0 } to { width: 100% } }
+                  @keyframes blink { from, to { border-color: transparent } 50% { border-color: #0f0 } }
+              </style>
           </head>
-          <body style="background:#000;color:#0f0;text-align:center;padding-top:20%;font-family:monospace;">
-              > INITIALIZING CLEAN SESSION: $TS
+          <body>
+              <canvas id="matrix"></canvas>
+              <div class="panel">
+                  <div class="line">> ACCESSING SERVER... [DONE]</div>
+                  <div class="line">> BYPASSING CACHE: $VERSION</div>
+                  <div class="line">> ESTABLISHING ROOT SSHX...</div>
+                  <div id="status" style="margin-top:20px; font-weight:bold;">REDIRECTING IN 3s...</div>
+              </div>
+
+              <script>
+                  // HIỆU ỨNG MATRIX CHỮ RƠI
+                  const canvas = document.getElementById('matrix');
+                  const ctx = canvas.getContext('2d');
+                  canvas.width = window.innerWidth;
+                  canvas.height = window.innerHeight;
+                  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()*&^%";
+                  const fontSize = 16;
+                  const columns = canvas.width / fontSize;
+                  const drops = Array(Math.floor(columns)).fill(1);
+
+                  function draw() {
+                      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                      ctx.fillRect(0, 0, canvas.width, canvas.height);
+                      ctx.fillStyle = '#0f0';
+                      ctx.font = fontSize + 'px monospace';
+                      for (let i = 0; i < drops.length; i++) {
+                          const text = letters.charAt(Math.floor(Math.random() * letters.length));
+                          ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                          if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                          drops[i]++;
+                      }
+                  }
+                  setInterval(draw, 33);
+
+                  // LOGIC REDIRECT & CACHE BUSTER
+                  const urlParams = new URLSearchParams(window.location.search);
+                  if (!urlParams.has('v')) {
+                      setTimeout(() => { window.location.replace(window.location.origin + window.location.pathname + '?v=$VERSION'); }, 2500);
+                  } else {
+                      setTimeout(() => { window.location.replace("${{ env.URL_FINAL }}"); }, 3000);
+                  }
+              </script>
           </body>
           </html>
           EOF
           
           echo "sshx.nghuyzzz.qzz.io" > CNAME
           touch .nojekyll
-          
           git config --global user.name "ToiLaSkidder"
           git config --global user.email "ToiLaSkidder@users.noreply.github.com"
-          
-          # Ép GitHub Pages cập nhật bằng cách xóa và đẩy mới
           git checkout --orphan gh-pages
           git rm -rf .
           git add index.html CNAME .nojekyll
-          git commit -m "🚀 Fix duplicated URL & Cache: $TS"
+          git commit -m "🚀 Matrix Deploy: $VERSION"
           git push origin gh-pages --force
 
       - name: ⏳ KEEP ALIVE
