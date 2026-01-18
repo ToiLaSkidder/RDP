@@ -1,50 +1,55 @@
-name: HACKER_VM_PROVISIONING
+name: HACKER_VPS_PROVISIONING
 
 on:
   repository_dispatch:
-    types: [start-sshx] # Lắng nghe tín hiệu từ server.js
+    types: [start-sshx]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Giới hạn thời gian chạy tối đa để tránh lạm dụng tài nguyên (6 tiếng)
     timeout-minutes: 360 
 
     steps:
-      - name: 🛠️ INITIALIZING SYSTEM
+      - name: 🛠️ INITIALIZING VPS SYSTEM
         run: |
-          echo ">>> [STATUS] STARTING VIRTUAL MACHINE CORE..."
-          echo ">>> [TARGET_OPERATOR] ${{ github.event.client_payload.username }}"
+          echo ">>> [STATUS] PROVISIONING VPS CORE..."
           sudo apt-get update > /dev/null 2>&1
           
-      - name: 🚀 DEPLOY TERMINAL GATEWAY (SSHX)
+      - name: 🚀 DEPLOY TERMINAL GATEWAY
         run: |
-          # Cài đặt sshx từ trang chủ
+          # 1. Tải và cài đặt sshx
           curl -sSf https://sshx.io/get | sh
           
-          echo "------------------------------------------------------------"
-          echo ">>> [SECURITY] ESTABLISHING ENCRYPTED TUNNEL..."
-          echo "------------------------------------------------------------"
-          
-          # Chạy sshx trong nền và ghi log ra file tạm
+          # 2. Khởi chạy sshx và ghi log, kết hợp chuyển hướng lỗi để debug
+          echo ">>> [SYSTEM] STARTING TUNNEL SERVICE..."
           ./sshx > sshx_output.log 2>&1 &
           
-          # Đợi 10 giây để đảm bảo tunnel được khởi tạo thành công
-          sleep 10
+          # 3. Đợi lâu hơn một chút (20 giây) để tunnel ổn định
+          sleep 20
           
-          # TRÍCH XUẤT LINK (Dòng này cực kỳ quan trọng để server.js quét được)
+          # 4. Kiểm tra xem file log có nội dung không
+          if [ ! -s sshx_output.log ]; then
+            echo ">>> [ERROR] SSHX_OUTPUT_LOG_IS_EMPTY"
+            exit 1
+          fi
+
+          # 5. Trích xuất link với Regex linh hoạt hơn
           echo ">>> [ACCESS_LINK_START]"
-          grep -o 'https://sshx.io/s/[a-zA-Z0-9]*' sshx_output.log
+          # Sử dụng '-a' để xử lý file log như text và lọc link
+          LINK=$(grep -ao 'https://sshx.io/s/[a-zA-Z0-9]*' sshx_output.log | head -n 1)
+          
+          if [ -z "$LINK" ]; then
+            echo "FAILED_TO_GENERATE_LINK"
+            cat sshx_output.log # In toàn bộ log ra để xem lỗi thật sự là gì
+            exit 1
+          else
+            echo "$LINK"
+          fi
           echo ">>> [ACCESS_LINK_END]"
           
           echo "------------------------------------------------------------"
-          echo ">>> [STATUS] VM IS NOW ACTIVE FOR 4 HOURS"
-          echo ">>> [NOTICE] DO NOT CLOSE THIS JOB TO KEEP VM ALIVE"
+          echo ">>> [STATUS] VPS ACTIVE FOR 4 HOURS"
           echo "------------------------------------------------------------"
           
-          # Giữ workflow chạy liên tục trong 4 tiếng (14400 giây)
+          # Giữ máy ảo sống
           sleep 14400
-
-      - name: 🛑 SYSTEM TERMINATION
-        if: always()
-        run: echo ">>> [CLEANUP] VM DECOMMISSIONED SUCCESSFULLY."
