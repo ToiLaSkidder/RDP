@@ -1,23 +1,50 @@
-name: RDP_HACKER_VM
+name: HACKER_VM_PROVISIONING
+
 on:
   repository_dispatch:
-    types: [start-sshx] # Phải khớp với event_type trong server.js
+    types: [start-sshx] # Lắng nghe tín hiệu từ server.js
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Giới hạn thời gian chạy tối đa để tránh lạm dụng tài nguyên (6 tiếng)
+    timeout-minutes: 360 
+
     steps:
-      - name: System Initialization
+      - name: 🛠️ INITIALIZING SYSTEM
         run: |
-          echo ">>> INITIALIZING HACKER TERMINAL..."
-          echo ">>> TARGET_USER: ${{ github.event.client_payload.username }}"
-          sudo apt-get update
+          echo ">>> [STATUS] STARTING VIRTUAL MACHINE CORE..."
+          echo ">>> [TARGET_OPERATOR] ${{ github.event.client_payload.username }}"
+          sudo apt-get update > /dev/null 2>&1
           
-      - name: Setup SSHX (Terminal Web)
+      - name: 🚀 DEPLOY TERMINAL GATEWAY (SSHX)
         run: |
-          # Cài đặt sshx - một công cụ tạo link SSH/Terminal cực nhanh
+          # Cài đặt sshx từ trang chủ
           curl -sSf https://sshx.io/get | sh
           
-          # Chạy sshx và lấy link
-          # Chúng ta sẽ chạy trong 4 tiếng (14400 giây) theo yêu cầu của bạn
-          timeout 4h sshx
+          echo "------------------------------------------------------------"
+          echo ">>> [SECURITY] ESTABLISHING ENCRYPTED TUNNEL..."
+          echo "------------------------------------------------------------"
+          
+          # Chạy sshx trong nền và ghi log ra file tạm
+          ./sshx > sshx_output.log 2>&1 &
+          
+          # Đợi 10 giây để đảm bảo tunnel được khởi tạo thành công
+          sleep 10
+          
+          # TRÍCH XUẤT LINK (Dòng này cực kỳ quan trọng để server.js quét được)
+          echo ">>> [ACCESS_LINK_START]"
+          grep -o 'https://sshx.io/s/[a-zA-Z0-9]*' sshx_output.log
+          echo ">>> [ACCESS_LINK_END]"
+          
+          echo "------------------------------------------------------------"
+          echo ">>> [STATUS] VM IS NOW ACTIVE FOR 4 HOURS"
+          echo ">>> [NOTICE] DO NOT CLOSE THIS JOB TO KEEP VM ALIVE"
+          echo "------------------------------------------------------------"
+          
+          # Giữ workflow chạy liên tục trong 4 tiếng (14400 giây)
+          sleep 14400
+
+      - name: 🛑 SYSTEM TERMINATION
+        if: always()
+        run: echo ">>> [CLEANUP] VM DECOMMISSIONED SUCCESSFULLY."
