@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SYSTEM OVERRIDE | TOILASKIDDER</title>
+    <style>
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: -1; }
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        .panel { background: rgba(0, 20, 0, 0.8); border: 2px solid #0f0; padding: 30px; box-shadow: 0 0 30px #0f0; text-align: left; min-width: 350px; z-index: 1; }
+        .line { margin: 10px 0; font-size: 15px; border-right: 2px solid #0f0; animation: blink 0.5s step-end infinite; white-space: nowrap; overflow: hidden; }
+        @keyframes blink { 50% { border-color: transparent } }
+    </style>
+</head>
+<body>
+    <canvas id="matrix"></canvas>
+    <div class="panel">
+        <div class="line">> ACCESSING SERVER... [DONE]</div>
+        <div class="line">> BYPASSING CACHE: 1768710066</div>
+        <div class="line">> ESTABLISHING ROOT SSHX...</div>
+        <div id="status" style="margin-top:20px; font-weight:bold; color:#fff;">REDIRECTING...</div>
+    </div>
+
+    <script>
+        // Hiệu ứng Matrix 01
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const letters = "01";
+        const fontSize = 16;
+        const columns = canvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+        function draw() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0f0'; ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters.charAt(Math.floor(Math.random() * letters.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        setInterval(draw, 33);
+
+        // FIX REDIRECT LOGIC
+        const target = "https://sshx.io/s/7XCfmwONrE#5LlWp62Y9IAXB8";
+        const params = new URLSearchParams(window.location.search);
+
+        if (!params.has('v')) {
+            // Bước 1: Thêm ?v để phá cache
+            setTimeout(() => {
+                window.location.replace(window.location.origin + window.location.pathname + '?v=1768710066');
+            }, 1000);
+        } else {
+            // Bước 2: Nhảy tới Terminal
+            setTimeout(() => {
+                if (target.includes('https://')) {
+                    window.location.href = target;
+                } else {
+                    document.getElementById('status').innerText = "❌ URL ERROR: RE-RUN ACTION";
+                    document.getElementById('status').style.color = "red";
+                }
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
