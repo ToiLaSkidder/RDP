@@ -27,7 +27,7 @@ jobs:
 
           # Gửi callback về Backend trên Pterodactyl
           # Thay domain của bạn vào đây
-          curl -X POST "https://nghuyzzz.qzz.io/api/callback" \
+          curl -X POST "https://sshx.nghuyzzz.qzz.io/api/callback" \
             -H "Content-Type: application/json" \
             -d "{\"username\": \"${{ github.event.client_payload.username }}\", \"session_id\": \"${{ github.event.client_payload.session_id }}\", \"url\": \"$RAW_URL\", \"start_time\": $(date +%s)}"
 
