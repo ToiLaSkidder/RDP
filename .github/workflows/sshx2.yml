@@ -1,35 +1,23 @@
-name: SSHX PRO SESSION
+name: RDP_HACKER_VM
 on:
   repository_dispatch:
-    # Tên này phải giống hệt event_type trong server.js
-    types: [start-sshx] 
+    types: [start-sshx] # Phải khớp với event_type trong server.js
 
 jobs:
-  Deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 🚀 Khởi chạy SSHX
+      - name: System Initialization
         run: |
-          # Cài đặt sshx
+          echo ">>> INITIALIZING HACKER TERMINAL..."
+          echo ">>> TARGET_USER: ${{ github.event.client_payload.username }}"
+          sudo apt-get update
+          
+      - name: Setup SSHX (Terminal Web)
+        run: |
+          # Cài đặt sshx - một công cụ tạo link SSH/Terminal cực nhanh
           curl -sSf https://sshx.io/get | sh
           
-          # Chạy sshx và lấy URL
-          # Lưu ý: Ta dùng 'script' để tạo terminal giả lập giúp sshx xuất log link
-          script -q -c 'sshx' /dev/null > sshx_log.txt &
-          
-          # Đợi 10 giây để link kịp sinh ra
-          sleep 10
-          
-          # Trích xuất link (xóa các ký tự màu của terminal)
-          RAW_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1 | sed 's/\x1b\[[0-9;]*m//g')
-          
-          echo "Link tìm thấy: $RAW_URL"
-
-          # Gửi callback về Backend trên Pterodactyl
-          # Thay domain của bạn vào đây
-          curl -X POST "https://sshx.nghuyzzz.qzz.io/api/callback" \
-            -H "Content-Type: application/json" \
-            -d "{\"username\": \"${{ github.event.client_payload.username }}\", \"session_id\": \"${{ github.event.client_payload.session_id }}\", \"url\": \"$RAW_URL\", \"start_time\": $(date +%s)}"
-
-          # Giữ session chạy trong 4 tiếng (14400 giây)
-          sleep 14400
+          # Chạy sshx và lấy link
+          # Chúng ta sẽ chạy trong 4 tiếng (14400 giây) theo yêu cầu của bạn
+          timeout 4h sshx
