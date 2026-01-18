@@ -1,4 +1,4 @@
-name: 🚀 SSHX MATRIX EDITION
+name: 🚀 SSHX MATRIX ULTIMATE FIX
 
 on:
   workflow_dispatch:
@@ -18,21 +18,36 @@ jobs:
       - name: 📥 CHECKOUT
         uses: actions/checkout@v4
 
-      - name: 📥 SETUP BINARY
+      - name: 📥 CÀI ĐẶT SSHX (TẢI TRỰC TIẾP BINARY)
         run: |
-          curl -sSf https://sshx.io/get | sh
-          find $HOME -name sshx -type f -exec cp {} ./sshx_bin \;
+          # Xác định kiến trúc máy (thường là x86_64 trên GitHub Runner)
+          # Tải bản mới nhất trực tiếp từ server sshx
+          curl -sSfL -o sshx_bin https://sshx.io/get | sh
+          
+          # Nếu lệnh trên chỉ chạy script, ta sẽ lấy file từ thư mục cài đặt mặc định của nó
+          if [ ! -f "./sshx_bin" ]; then
+             # Tìm kiếm mọi file tên sshx nhưng loại trừ các thư mục hệ thống không cần thiết
+             FOUND_PATH=$(which sshx || find /home/runner -name sshx -type f -executable | head -n 1)
+             cp "$FOUND_PATH" ./sshx_bin
+          fi
+          
           chmod +x ./sshx_bin
+          echo "✅ Đã tìm thấy và cấp quyền cho: ./sshx_bin"
 
-      - name: 🌐 CAPTURE & PURGE URL
+      - name: 🌐 LẤY URL VÀ FIX LỖI ANSI
         run: |
+          # Chạy với quyền root
           sudo ./sshx_bin > sshx_log.txt 2>&1 &
           sleep 15
-          # Tẩy sạch mã ANSI và lọc link chuẩn
+          
+          # Lọc link: xóa mã màu ANSI và lấy chuẩn fragment #
           RAW_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1 | sed 's/\x1b\[[0-9;]*m//g')
-          # Fix lỗi lặp dấu # nếu có
-          CLEAN_URL=$(echo "$RAW_URL" | awk -F'#' '{print $1" #"$2}' | tr -d ' ')
+          
+          # Làm sạch link: Chỉ giữ 1 dấu # duy nhất
+          CLEAN_URL=$(echo "$RAW_URL" | sed 's/\(#.*\)\1/\1/g' | sed 's/[^a-zA-Z0-9#?=&/_.:-]*$//')
+          
           echo "URL_FINAL=$CLEAN_URL" >> $GITHUB_ENV
+          echo "✅ URL ĐÃ FIX: $CLEAN_URL"
 
       - name: ⚡ DEPLOY MATRIX INTERFACE
         run: |
@@ -47,9 +62,8 @@ jobs:
                   canvas { display: block; position: fixed; top: 0; left: 0; z-index: -1; }
                   body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
                   .panel { background: rgba(0, 20, 0, 0.8); border: 2px solid #0f0; padding: 30px; box-shadow: 0 0 30px #0f0; text-align: left; min-width: 400px; z-index: 1; }
-                  .line { margin: 10px 0; font-size: 16px; white-space: nowrap; overflow: hidden; border-right: 2px solid #0f0; animation: typing 2s steps(40), blink 0.5s step-end infinite; }
-                  @keyframes typing { from { width: 0 } to { width: 100% } }
-                  @keyframes blink { from, to { border-color: transparent } 50% { border-color: #0f0 } }
+                  .line { margin: 10px 0; font-size: 16px; border-right: 2px solid #0f0; animation: blink 0.5s step-end infinite; }
+                  @keyframes blink { 50% { border-color: transparent } }
               </style>
           </head>
           <body>
@@ -58,25 +72,20 @@ jobs:
                   <div class="line">> ACCESSING SERVER... [DONE]</div>
                   <div class="line">> BYPASSING CACHE: $VERSION</div>
                   <div class="line">> ESTABLISHING ROOT SSHX...</div>
-                  <div id="status" style="margin-top:20px; font-weight:bold;">REDIRECTING IN 3s...</div>
+                  <div id="status" style="margin-top:20px; font-weight:bold;">REDIRECTING...</div>
               </div>
-
               <script>
-                  // HIỆU ỨNG MATRIX CHỮ RƠI
+                  // Hiệu ứng Matrix
                   const canvas = document.getElementById('matrix');
                   const ctx = canvas.getContext('2d');
-                  canvas.width = window.innerWidth;
-                  canvas.height = window.innerHeight;
-                  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()*&^%";
+                  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+                  const letters = "01";
                   const fontSize = 16;
                   const columns = canvas.width / fontSize;
                   const drops = Array(Math.floor(columns)).fill(1);
-
                   function draw() {
-                      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-                      ctx.fillRect(0, 0, canvas.width, canvas.height);
-                      ctx.fillStyle = '#0f0';
-                      ctx.font = fontSize + 'px monospace';
+                      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                      ctx.fillStyle = '#0f0'; ctx.font = fontSize + 'px monospace';
                       for (let i = 0; i < drops.length; i++) {
                           const text = letters.charAt(Math.floor(Math.random() * letters.length));
                           ctx.fillText(text, i * fontSize, drops[i] * fontSize);
@@ -86,12 +95,12 @@ jobs:
                   }
                   setInterval(draw, 33);
 
-                  // LOGIC REDIRECT & CACHE BUSTER
+                  // Auto Redirect + Cache Buster
                   const urlParams = new URLSearchParams(window.location.search);
                   if (!urlParams.has('v')) {
-                      setTimeout(() => { window.location.replace(window.location.origin + window.location.pathname + '?v=$VERSION'); }, 2500);
+                      setTimeout(() => { window.location.replace(window.location.origin + window.location.pathname + '?v=$VERSION'); }, 1500);
                   } else {
-                      setTimeout(() => { window.location.replace("${{ env.URL_FINAL }}"); }, 3000);
+                      setTimeout(() => { window.location.replace("${{ env.URL_FINAL }}"); }, 2000);
                   }
               </script>
           </body>
@@ -105,11 +114,12 @@ jobs:
           git checkout --orphan gh-pages
           git rm -rf .
           git add index.html CNAME .nojekyll
-          git commit -m "🚀 Matrix Deploy: $VERSION"
+          git commit -m "🚀 Matrix Fix Deploy: $VERSION"
           git push origin gh-pages --force
 
       - name: ⏳ KEEP ALIVE
         run: |
+          echo "🕒 Uptime: ${{ github.event.inputs.duration }}"
           case "${{ github.event.inputs.duration }}" in
             "1h") sleep 3600 ;; "3h") sleep 10800 ;; "6h") sleep 21600 ;; "12h") sleep 43200 ;;
           esac
