@@ -1,4 +1,4 @@
-name: 🚀 SSHX MATRIX ULTIMATE FIX
+name: 🚀 SSHX MATRIX FIXED REDIRECT
 
 on:
   workflow_dispatch:
@@ -18,40 +18,33 @@ jobs:
       - name: 📥 CHECKOUT
         uses: actions/checkout@v4
 
-      - name: 📥 CÀI ĐẶT SSHX (TẢI TRỰC TIẾP BINARY)
+      - name: 📥 CÀI ĐẶT SSHX
         run: |
-          # Xác định kiến trúc máy (thường là x86_64 trên GitHub Runner)
-          # Tải bản mới nhất trực tiếp từ server sshx
-          curl -sSfL -o sshx_bin https://sshx.io/get | sh
-          
-          # Nếu lệnh trên chỉ chạy script, ta sẽ lấy file từ thư mục cài đặt mặc định của nó
-          if [ ! -f "./sshx_bin" ]; then
-             # Tìm kiếm mọi file tên sshx nhưng loại trừ các thư mục hệ thống không cần thiết
-             FOUND_PATH=$(which sshx || find /home/runner -name sshx -type f -executable | head -n 1)
-             cp "$FOUND_PATH" ./sshx_bin
-          fi
-          
+          curl -sSf https://sshx.io/get | sh
+          # Tìm file thực thi chính xác
+          FOUND_PATH=$(which sshx || find /home/runner -name sshx -type f -executable | head -n 1)
+          cp "$FOUND_PATH" ./sshx_bin
           chmod +x ./sshx_bin
-          echo "✅ Đã tìm thấy và cấp quyền cho: ./sshx_bin"
 
-      - name: 🌐 LẤY URL VÀ FIX LỖI ANSI
+      - name: 🌐 LẤY URL & LÀM SẠCH (ANTI-STUCK)
         run: |
-          # Chạy với quyền root
           sudo ./sshx_bin > sshx_log.txt 2>&1 &
           sleep 15
-          
-          # Lọc link: xóa mã màu ANSI và lấy chuẩn fragment #
+          # Lọc URL: Xóa mã màu ANSI và lấy chuẩn fragment
           RAW_URL=$(grep -o 'https://sshx.io/s/[^[:space:]]*' sshx_log.txt | head -n 1 | sed 's/\x1b\[[0-9;]*m//g')
-          
-          # Làm sạch link: Chỉ giữ 1 dấu # duy nhất
-          CLEAN_URL=$(echo "$RAW_URL" | sed 's/\(#.*\)\1/\1/g' | sed 's/[^a-zA-Z0-9#?=&/_.:-]*$//')
+          # Xóa mọi ký tự rác, xuống dòng, khoảng trắng để tránh lỗi JavaScript bị "đứng"
+          CLEAN_URL=$(echo "$RAW_URL" | tr -d '\n' | tr -d '\r' | tr -d ' ')
           
           echo "URL_FINAL=$CLEAN_URL" >> $GITHUB_ENV
-          echo "✅ URL ĐÃ FIX: $CLEAN_URL"
+          echo "$CLEAN_URL" > url_source.txt
+          echo "✅ URL CHUẨN: $CLEAN_URL"
 
-      - name: ⚡ DEPLOY MATRIX INTERFACE
+      - name: ⚡ DEPLOY MATRIX (FIXED JS LOGIC)
         run: |
           VERSION=$(date +%s)
+          # Đọc URL từ file để đảm bảo không mất ký tự #
+          FINAL_URL=$(cat url_source.txt)
+
           cat <<EOF > index.html
           <!DOCTYPE html>
           <html>
@@ -61,8 +54,8 @@ jobs:
               <style>
                   canvas { display: block; position: fixed; top: 0; left: 0; z-index: -1; }
                   body { background: #000; color: #0f0; font-family: 'Courier New', monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-                  .panel { background: rgba(0, 20, 0, 0.8); border: 2px solid #0f0; padding: 30px; box-shadow: 0 0 30px #0f0; text-align: left; min-width: 400px; z-index: 1; }
-                  .line { margin: 10px 0; font-size: 16px; border-right: 2px solid #0f0; animation: blink 0.5s step-end infinite; }
+                  .panel { background: rgba(0, 20, 0, 0.8); border: 2px solid #0f0; padding: 30px; box-shadow: 0 0 30px #0f0; text-align: left; min-width: 350px; z-index: 1; }
+                  .line { margin: 10px 0; font-size: 15px; border-right: 2px solid #0f0; animation: blink 0.5s step-end infinite; white-space: nowrap; overflow: hidden; }
                   @keyframes blink { 50% { border-color: transparent } }
               </style>
           </head>
@@ -72,10 +65,11 @@ jobs:
                   <div class="line">> ACCESSING SERVER... [DONE]</div>
                   <div class="line">> BYPASSING CACHE: $VERSION</div>
                   <div class="line">> ESTABLISHING ROOT SSHX...</div>
-                  <div id="status" style="margin-top:20px; font-weight:bold;">REDIRECTING...</div>
+                  <div id="status" style="margin-top:20px; font-weight:bold; color:#fff;">REDIRECTING...</div>
               </div>
+
               <script>
-                  // Hiệu ứng Matrix
+                  // Hiệu ứng Matrix 01
                   const canvas = document.getElementById('matrix');
                   const ctx = canvas.getContext('2d');
                   canvas.width = window.innerWidth; canvas.height = window.innerHeight;
@@ -95,12 +89,25 @@ jobs:
                   }
                   setInterval(draw, 33);
 
-                  // Auto Redirect + Cache Buster
-                  const urlParams = new URLSearchParams(window.location.search);
-                  if (!urlParams.has('v')) {
-                      setTimeout(() => { window.location.replace(window.location.origin + window.location.pathname + '?v=$VERSION'); }, 1500);
+                  // FIX REDIRECT LOGIC
+                  const target = "$FINAL_URL";
+                  const params = new URLSearchParams(window.location.search);
+
+                  if (!params.has('v')) {
+                      // Bước 1: Thêm ?v để phá cache
+                      setTimeout(() => {
+                          window.location.replace(window.location.origin + window.location.pathname + '?v=$VERSION');
+                      }, 1000);
                   } else {
-                      setTimeout(() => { window.location.replace("${{ env.URL_FINAL }}"); }, 2000);
+                      // Bước 2: Nhảy tới Terminal
+                      setTimeout(() => {
+                          if (target.includes('https://')) {
+                              window.location.href = target;
+                          } else {
+                              document.getElementById('status').innerText = "❌ URL ERROR: RE-RUN ACTION";
+                              document.getElementById('status').style.color = "red";
+                          }
+                      }, 2000);
                   }
               </script>
           </body>
@@ -114,12 +121,11 @@ jobs:
           git checkout --orphan gh-pages
           git rm -rf .
           git add index.html CNAME .nojekyll
-          git commit -m "🚀 Matrix Fix Deploy: $VERSION"
+          git commit -m "🚀 Fix Stuck Redirect: $VERSION"
           git push origin gh-pages --force
 
       - name: ⏳ KEEP ALIVE
         run: |
-          echo "🕒 Uptime: ${{ github.event.inputs.duration }}"
           case "${{ github.event.inputs.duration }}" in
             "1h") sleep 3600 ;; "3h") sleep 10800 ;; "6h") sleep 21600 ;; "12h") sleep 43200 ;;
           esac
